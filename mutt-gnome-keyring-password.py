@@ -20,14 +20,20 @@
 # This script was inspired by a similar hack for offlineimap by Ross Burton:
 # http://burtonini.com/blog/computers/offlineimap-2008-11-04-20-00
 #
+# To store a password in a keyring first run:
+# mutt-gnome-keyring-password.py -p yourusername your.imap.server imap
+#
 
 import sys
 import gobject
 import gnomekeyring
 
+read_pass = False
 
 try:
-    user, server, protocol = sys.argv[1:]
+    if sys.argv[1] == "-p":
+        read_pass = True
+    user, server, protocol = sys.argv[2 if read_pass else 1:]
 except ValueError as e:
     print 'Error parsing arguments: %s' % (e,)
     print 'Usage: %s USERNAME SERVERNAME PROTOCOL' % (sys.argv[0],)
@@ -37,8 +43,13 @@ gobject.set_application_name('Mutt')
 
 try:
     q = dict(user=user, server=server, protocol=protocol)
-    keys = gnomekeyring.find_network_password_sync(**q)
-    password = keys[0]["password"].replace('"', r'\"')
-    print 'set imap_pass = "%s"' % (password,)
+    if read_pass:
+        import getpass
+        q['password'] = getpass.getpass()
+        gnomekeyring.set_network_password_sync(**q)
+    else:
+        keys = gnomekeyring.find_network_password_sync(**q)
+        password = keys[0]["password"].replace('"', r'\"')
+        print 'set imap_pass = "%s"' % (password,)
 except (gnomekeyring.NoMatchError, gnomekeyring.IOError), e:
     pass
